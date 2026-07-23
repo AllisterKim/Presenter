@@ -188,11 +188,24 @@ namespace Presenter
             };
             menu.Items.Add(timerItem);
 
-            var magnifierItem = new MenuItem { Header = "돋보기" };
+            var magnifierItem = new MenuItem
+            {
+                Header = "돋보기 모드",
+                IsCheckable = true,
+                IsChecked = _overlay?.IsMagnifyModeActive ?? false
+            };
             magnifierItem.Click += (_, _) =>
             {
+                if (magnifierItem.IsChecked)
+                {
+                    EnsureOverlay();
+                    _overlay!.EnterMagnifyMode();
+                }
+                else
+                {
+                    _overlay?.ExitMagnifyModeIfActive();
+                }
                 menu.IsOpen = false;
-                OpenMagnifierWindow();
             };
             menu.Items.Add(magnifierItem);
 
@@ -599,19 +612,6 @@ namespace Presenter
             timerWindow.Closed += (_, _) => _overlay?.HideTimeUpMascot();
 
             timerWindow.Show();
-        }
-
-        private void OpenMagnifierWindow()
-        {
-            EnsureOverlay();
-            _overlay!.EnterMagnifyMode();
-
-            var magnifierWindow = new MagnifierWindow();
-
-            // 돋보기 도구 창을 닫으면(닫기 버튼이든 다시 열어서든) 돋보기 모드도 함께 종료한다.
-            magnifierWindow.Closed += (_, _) => _overlay?.ExitMagnifyModeIfActive();
-
-            magnifierWindow.Show();
         }
 
         private void EnsureOverlay()

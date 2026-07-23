@@ -68,12 +68,7 @@ namespace Presenter
         // 마스코트 메뉴/트레이 메뉴 양쪽에서 공유하는 종료 확인 팝업.
         public static bool ConfirmExit()
         {
-            return MessageBox.Show(
-                "오공 프레젠터를 종료하시겠습니까?",
-                "종료 확인",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No) == MessageBoxResult.Yes;
+            return ConfirmDialog.Show("오공 프레젠터를 종료하시겠습니까?", "종료", "취소");
         }
 
         protected override void OnExit(ExitEventArgs e)

@@ -54,6 +54,9 @@ namespace Presenter
         private Point _magnifyAnchor;
         private Size _magnifyCaptureSize;
         private double _magnifyScale = DefaultMagnifyScale;
+        private Border? _magnifyCursorLabel;
+
+        public bool IsMagnifyModeActive => _mode == OverlayMode.Magnify;
 
         // AllowsTransparency 창은 픽셀 알파값이 0인 영역은 마우스 히트테스트 자체가 되지 않는다
         // (WS_EX_TRANSPARENT와는 별개의 동작). 완전 투명(Transparent, alpha=0)이면 그리기 모드에서도
@@ -94,7 +97,7 @@ namespace Presenter
 
             DetachDrawHandlers();
             DetachMagnifyHandlers();
-            RemoveMagnifiedOverlay();
+            RemoveMagnifyCursorLabel();
             UpdateLaserPosition();
             _pointerTimer.Start();
         }
@@ -127,10 +130,13 @@ namespace Presenter
 
             _pointerTimer.Stop();
             DetachMagnifyHandlers();
-            RemoveMagnifiedOverlay();
+            RemoveMagnifyCursorLabel();
             AttachDrawHandlers();
         }
 
+        // 돋보기 모드에서는 화면을 드래그해 영역을 선택하면 그 부분이 확대되어 표시된다.
+        // 이미 확대된 화면이 떠 있는 상태에서 다시 이 모드로 들어와도 지우지 않고 그대로 둔다
+        // (프레젠테이션/그리기 모드로 전환했다가 돌아와도 확대 화면은 유지된다).
         public void EnterMagnifyMode()
         {
             _mode = OverlayMode.Magnify;
@@ -144,11 +150,11 @@ namespace Presenter
 
             _pointerTimer.Stop();
             DetachDrawHandlers();
-            RemoveMagnifiedOverlay();
             AttachMagnifyHandlers();
+            ShowMagnifyCursorLabel();
         }
 
-        // 돋보기 도구 창이 닫힐 때 호출된다. 다른 모드로 이미 전환된 상태라면 아무것도 하지 않는다.
+        // 메뉴의 "돋보기 모드" 토글을 끌 때 호출된다. 다른 모드로 이미 전환된 상태라면 아무것도 하지 않는다.
         public void ExitMagnifyModeIfActive()
         {
             if (_mode == OverlayMode.Magnify)
@@ -185,6 +191,7 @@ namespace Presenter
             DetachDrawHandlers();
             DetachMagnifyHandlers();
             RemoveMagnifiedOverlay();
+            RemoveMagnifyCursorLabel();
             _magnifyScale = DefaultMagnifyScale;
 
             SetClickThrough(true);
@@ -416,7 +423,8 @@ namespace Presenter
                 Stroke = Brushes.White,
                 StrokeThickness = 1.5,
                 StrokeDashArray = new DoubleCollection { 4, 3 },
-                Fill = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF))
+                // 선택 영역은 완전히 투명하게 두고 테두리로만 구분한다.
+                Fill = Brushes.Transparent
             };
             Canvas.SetLeft(_magnifySelectionRect, _magnifyStartPoint.X);
             Canvas.SetTop(_magnifySelectionRect, _magnifyStartPoint.Y);
@@ -426,12 +434,14 @@ namespace Presenter
 
         private void Magnify_MouseMove(object sender, MouseEventArgs e)
         {
+            Point pos = e.GetPosition(DrawCanvas);
+            UpdateMagnifyCursorLabelPosition(pos);
+
             if (_magnifySelectionRect == null || e.LeftButton != MouseButtonState.Pressed)
             {
                 return;
             }
 
-            Point pos = e.GetPosition(DrawCanvas);
             UpdateBoundingBoxShape(_magnifySelectionRect, _magnifyStartPoint, pos, keepSquare: false);
         }
 
@@ -578,7 +588,7 @@ namespace Presenter
             }
         }
 
-        // Esc 또는 새 드래그 시작, 다른 모드로 전환 시 호출되어 확대 화면을 치운다.
+        // Esc 또는 모드 종료 시 호출되어 확대 화면을 치운다.
         private void RemoveMagnifiedOverlay()
         {
             if (_magnifiedOverlay != null)
@@ -587,6 +597,51 @@ namespace Presenter
                 _magnifiedOverlay = null;
                 _magnifiedImage = null;
                 _magnifiedScaleText = null;
+            }
+        }
+
+        // 모달 창 대신, 돋보기 모드가 켜져 있는 동안 커서를 따라다니는 작은 안내 라벨.
+        private void ShowMagnifyCursorLabel()
+        {
+            RemoveMagnifyCursorLabel();
+
+            var text = new TextBlock
+            {
+                Text = "돋보기 모드 실행",
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White
+            };
+
+            _magnifyCursorLabel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x0A, 0x84, 0xFF)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(8, 4, 8, 4),
+                Child = text,
+                IsHitTestVisible = false // 커서 바로 옆의 라벨이 드래그/클릭을 가로채면 안 된다
+            };
+
+            DrawCanvas.Children.Add(_magnifyCursorLabel);
+        }
+
+        private void UpdateMagnifyCursorLabelPosition(Point cursorPos)
+        {
+            if (_magnifyCursorLabel == null)
+            {
+                return;
+            }
+
+            Canvas.SetLeft(_magnifyCursorLabel, cursorPos.X + 18);
+            Canvas.SetTop(_magnifyCursorLabel, cursorPos.Y + 18);
+        }
+
+        private void RemoveMagnifyCursorLabel()
+        {
+            if (_magnifyCursorLabel != null)
+            {
+                DrawCanvas.Children.Remove(_magnifyCursorLabel);
+                _magnifyCursorLabel = null;
             }
         }
 
@@ -734,16 +789,7 @@ namespace Presenter
         {
             if (e.Key == Key.Escape)
             {
-                // 돋보기 모드에서 ESC는 모드 자체는 유지한 채 확대 화면만 원래대로 되돌린다.
-                // 모드 종료는 돋보기 도구 창을 닫아야 한다.
-                if (_mode == OverlayMode.Magnify)
-                {
-                    RemoveMagnifiedOverlay();
-                }
-                else
-                {
-                    ExitMode();
-                }
+                ExitMode();
             }
             else if (e.Key == Key.Delete && _mode == OverlayMode.Draw)
             {
