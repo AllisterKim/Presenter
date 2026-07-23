@@ -1,0 +1,97 @@
+<!--
+  Presenter MSI 설치 프로그램 (WiX Toolset v5).
+
+  빌드 전에 반드시 아래 명령으로 배포용 실행 파일을 먼저 만들어야 합니다(publish 스크립트 참고).
+    dotnet publish, self contained, single file, win-x64 -o ..\publish\win-x64
+
+  그 다음 이 스크립트를 wix build로 컴파일하면 Output\PresenterSetup.msi 가 생성됩니다.
+    wix build Presenter.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -arch x64 -o Output\PresenterSetup.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Presenter"
+           Manufacturer="Presenter"
+           Version="1.0.0"
+           UpgradeCode="2F23E377-8DEF-4EF8-8779-EA55EC8D9B3D"
+           Scope="perUser"
+           Codepage="65001">
+
+    <!-- 관리자 권한 없이 현재 사용자 계정에만 설치 (PRD 요구사항: 관리자 권한 불필요) -->
+    <MajorUpgrade DowngradeErrorMessage="이미 더 최신 버전의 Presenter가 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="Presenter" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramMenuFolder" Name="Presenter" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="MainFeature" Title="Presenter" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="AutoStartRegistry" />
+    </Feature>
+
+    <!-- 설치 완료 화면의 "실행" 체크박스 → Presenter.exe 자동 실행 -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Presenter 실행" />
+    <Property Id="WixShellExecTarget" Value="[INSTALLFOLDER]Presenter.exe" />
+    <CustomAction Id="LaunchApplication" DllEntry="WixShellExec" Impersonate="yes" BinaryRef="Wix4UtilCA_X64" />
+
+    <ui:WixUI Id="WixUI_Minimal" />
+
+    <!-- WixUI_Minimal의 ExitDialog는 체크박스 컨트롤만 정의할 뿐, "마침" 클릭 시 실제로
+         액션을 실행하도록 연결하는 Publish는 없어서 직접 연결해줘야 한다. -->
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="6C1B7F0B-8C9E-4C4B-9C3E-4E6F7E2B5A10">
+        <File Id="PresenterExe" Source="..\publish\win-x64\Presenter.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StartMenuShortcut" Directory="AppProgramMenuFolder" Guid="9A2D6E4F-1B3C-4A5D-8E7F-2C4B6A8D0E12">
+      <Shortcut Id="StartMenuShortcutFile"
+                Name="Presenter"
+                Target="[INSTALLFOLDER]Presenter.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveAppProgramMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\Presenter" Name="StartMenuShortcutInstalled" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="3E5F8A1C-2D4B-4E6F-9A8C-1B3D5E7F9A21">
+      <Shortcut Id="DesktopShortcutFile"
+                Name="Presenter"
+                Target="[INSTALLFOLDER]Presenter.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU" Key="Software\Presenter" Name="DesktopShortcutInstalled" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+  <Fragment>
+    <!-- PC 부팅(로그온) 시 Presenter가 자동 실행되도록 등록. 제거 시 이 값도 함께 삭제된다. -->
+    <Component Id="AutoStartRegistry" Directory="INSTALLFOLDER" Guid="7D4A2F6E-3C1B-4D5A-8E9F-0A2C4E6F8B33">
+      <RegistryValue Root="HKCU"
+                     Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                     Name="Presenter"
+                     Type="string"
+                     Value="&quot;[INSTALLFOLDER]Presenter.exe&quot;"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>
