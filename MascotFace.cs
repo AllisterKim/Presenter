@@ -214,7 +214,8 @@ namespace Presenter
                 FontWeight = FontWeights.Bold,
                 Foreground = Brushes.White,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 14, 0, 0)
+                Margin = new Thickness(0, 14, 0, 0),
+                Effect = new DropShadowEffect { Color = Colors.Black, Opacity = 0.85, BlurRadius = 6, ShadowDepth = 0 }
             };
 
             var panel = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
