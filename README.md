@@ -85,7 +85,14 @@ cd Presenter
 dotnet run
 ```
 
-### 배포용(Self-contained) 실행 파일 만들기
+### 설치 파일(PresenterSetup.msi) 만들기
+
+최종 배포물은 `PresenterSetup.msi` 하나입니다. 이 msi 안에 들어갈 실행 파일을 먼저
+self-contained 단일 파일로 publish한 뒤, 그것을 WiX로 패키징하는 2단계 과정입니다
+(중간 산출물인 `publish/win-x64/Presenter.exe`는 msi에 포함되는 재료일 뿐, 별도로
+배포하는 파일이 아닙니다).
+
+1. self-contained 실행 파일을 publish합니다.
 
 ```powershell
 dotnet publish Presenter.csproj -c Release -r win-x64 --self-contained true `
@@ -93,12 +100,7 @@ dotnet publish Presenter.csproj -c Release -r win-x64 --self-contained true `
   -p:EnableCompressionInSingleFile=true -o publish\win-x64
 ```
 
-`.NET 8 런타임 설치 여부와 상관없이 바로 실행 가능한 단일 `Presenter.exe`가
-`publish/win-x64/`에 생성됩니다.
-
-### 설치 파일(PresenterSetup.msi) 만들기
-
-1. [WiX Toolset](https://wixtoolset.org/) v5를 .NET 도구로 설치합니다.
+2. [WiX Toolset](https://wixtoolset.org/) v5를 .NET 도구로 설치합니다.
 
 ```powershell
 dotnet tool install --global wix --version 5.0.2
@@ -106,7 +108,6 @@ wix extension add WixToolset.UI.wixext/5.0.2
 wix extension add WixToolset.Util.wixext/5.0.2
 ```
 
-2. 위의 `dotnet publish` 명령으로 `publish/win-x64/Presenter.exe`를 먼저 만듭니다.
 3. `installer/Presenter.wxs`를 빌드합니다.
 
 ```powershell
