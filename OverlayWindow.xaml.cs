@@ -418,13 +418,15 @@ namespace Presenter
             RemoveMagnifiedOverlay();
 
             _magnifyStartPoint = e.GetPosition(DrawCanvas);
+            var neonGreen = Color.FromRgb(0x39, 0xFF, 0x14);
             _magnifySelectionRect = new Rectangle
             {
-                Stroke = Brushes.White,
-                StrokeThickness = 1.5,
+                Stroke = new SolidColorBrush(neonGreen),
+                StrokeThickness = 2,
                 StrokeDashArray = new DoubleCollection { 4, 3 },
                 // 선택 영역은 완전히 투명하게 두고 테두리로만 구분한다.
-                Fill = Brushes.Transparent
+                Fill = Brushes.Transparent,
+                Effect = new DropShadowEffect { Color = neonGreen, Opacity = 0.9, BlurRadius = 14, ShadowDepth = 0 }
             };
             Canvas.SetLeft(_magnifySelectionRect, _magnifyStartPoint.X);
             Canvas.SetTop(_magnifySelectionRect, _magnifyStartPoint.Y);

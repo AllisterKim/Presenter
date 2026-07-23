@@ -29,24 +29,109 @@
 
             <StackPanel>
                 <StackPanel.Resources>
+                    <!-- 줄바꿈된 둘째 줄부터도 첫 줄의 글자 시작점과 맞도록, 불릿과 본문을
+                         같은 폭 고정 칸에 분리해서 배치한다(줄 앞에 스페이스를 넣는 방식은
+                         창 폭이나 글꼴이 바뀌면 맞춰지지 않아, 칸으로 나누는 방식이 더 정확하다). -->
+                    <Style x:Key="BulletMarkerStyle" TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="#DDDDDD"/>
+                        <Setter Property="FontFamily" Value="Segoe UI"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="VerticalAlignment" Value="Top"/>
+                    </Style>
                     <Style TargetType="TextBlock">
                         <Setter Property="Foreground" Value="#DDDDDD"/>
                         <Setter Property="FontFamily" Value="Segoe UI"/>
                         <Setter Property="FontSize" Value="13"/>
                         <Setter Property="TextWrapping" Value="Wrap"/>
+                        <!-- 기존 줄간격보다 120%(1.2배) 넓게 -->
+                        <Setter Property="LineHeight" Value="18.7"/>
+                        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+                    </Style>
+                    <Style x:Key="BulletRowStyle" TargetType="Grid">
                         <Setter Property="Margin" Value="0,0,0,10"/>
                     </Style>
                 </StackPanel.Resources>
 
-                <TextBlock Text="•  오공을 드래그하면 위치를 옮길 수 있습니다."/>
-                <TextBlock Text="•  오공을 클릭하면 모드 메뉴가 열립니다."/>
-                <TextBlock Text="•  프레젠테이션 모드: 레이저 포인터가 마우스를 따라다닙니다. 메뉴에서 포인터 색상·크기를 미리 보고 고를 수 있습니다. ESC, 마우스 우클릭, 또는 오공 재클릭으로 종료합니다."/>
-                <TextBlock Text="•  그리기 모드: 자유곡선·직선·정사각형·직사각형·원형 도구로 화면 위에 그립니다. 색상과 두께도 메뉴에서 바로 바꿀 수 있습니다. Delete 키로 전체 지우고, ESC 또는 마우스 우클릭으로 종료합니다."/>
-                <TextBlock Text="•  타이머: 분을 입력해 카운트다운을 시작합니다. 슬라이더로 타이머 창 투명도를 조절할 수 있고, 종료 1분·30초 전 경고 문구가, 시간이 다 되면 오공이 화면에 표시됩니다."/>
-                <TextBlock Text="•  돋보기 모드: 메뉴에서 켜면 커서 옆에 '돋보기 모드 실행' 표시가 뜹니다. 화면을 드래그해 영역을 선택하면 그 부분이 확대되고, 마우스 휠로 확대율을 조정할 수 있습니다(최대 3배). ESC를 누르면 취소됩니다. 확대된 화면 위에서도 프레젠테이션·그리기 모드를 그대로 쓸 수 있습니다."/>
-                <TextBlock Text="•  현재 시간 표시: 메뉴에서 켜면 오공 머리 위에 24시간제 시계(00:00:00)가 표시됩니다."/>
-                <TextBlock Text="•  프레젠테이션·그리기·타이머·돋보기 모두 듀얼 모니터 환경에서 사용할 수 있습니다."/>
-                <TextBlock Text="•  트레이 아이콘을 우클릭하면 앱을 종료할 수 있습니다." Margin="0"/>
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="오공을 드래그하면 위치를 옮길 수 있습니다."/>
+                </Grid>
+
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="오공을 클릭하면 모드 메뉴가 열립니다."/>
+                </Grid>
+
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="프레젠테이션 모드: 레이저 포인터가 마우스를 따라다닙니다. 메뉴에서 포인터 색상·크기를 미리 보고 고를 수 있습니다. ESC, 마우스 우클릭, 또는 오공 재클릭으로 종료합니다."/>
+                </Grid>
+
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="그리기 모드: 자유곡선·직선·정사각형·직사각형·원형 도구로 화면 위에 그립니다. 색상과 두께도 메뉴에서 바로 바꿀 수 있습니다. Delete 키로 전체 지우고, ESC 또는 마우스 우클릭으로 종료합니다."/>
+                </Grid>
+
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="타이머: 분을 입력해 카운트다운을 시작합니다. 슬라이더로 타이머 창 투명도를 조절할 수 있고, 종료 1분·30초 전 경고 문구가, 시간이 다 되면 오공이 화면에 표시됩니다."/>
+                </Grid>
+
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="돋보기 모드: 메뉴에서 켜면 커서 옆에 '돋보기 모드 실행' 표시가 뜹니다. 화면을 드래그해 영역을 선택하면 그 부분이 확대되고, 마우스 휠로 확대율을 조정할 수 있습니다(최대 3배). ESC를 누르면 취소됩니다. 확대된 화면 위에서도 프레젠테이션·그리기 모드를 그대로 쓸 수 있습니다."/>
+                </Grid>
+
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="현재 시간 표시: 메뉴에서 켜면 오공 머리 위에 24시간제 시계(00:00:00)가 표시됩니다."/>
+                </Grid>
+
+                <Grid Style="{StaticResource BulletRowStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="프레젠테이션·그리기·타이머·돋보기 모두 듀얼 모니터 환경에서 사용할 수 있습니다."/>
+                </Grid>
+
+                <Grid Margin="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="•" Style="{StaticResource BulletMarkerStyle}"/>
+                    <TextBlock Grid.Column="1" Text="트레이 아이콘을 우클릭하면 앱을 종료할 수 있습니다."/>
+                </Grid>
             </StackPanel>
 
             <Button Content="확인"

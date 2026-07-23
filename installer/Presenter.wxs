@@ -6,19 +6,38 @@
 
   그 다음 이 스크립트를 wix build로 컴파일하면 Output\PresenterSetup.msi 가 생성됩니다.
     wix build Presenter.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -arch x64 -o Output\PresenterSetup.msi
+
+  <SummaryInformation>으로는 주제(Subject)/만든이(Author)까지만 설정할 수 있고,
+  탐색기 "속성 > 자세히"의 "제목"(SummaryInformation PID_TITLE)은 WiX가 직접 지원하지
+  않아, 빌드 후 아래 PowerShell로 한 번 더 써 줘야 한다(wix build를 다시 하면 초기화되므로
+  매번 다시 실행 필요):
+    $msiPath = "Output\PresenterSetup.msi"
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    $db = $installer.OpenDatabase($msiPath, 1)
+    $si = $db.SummaryInformation(6)
+    $si.Property(2) = "I'm your bais."
+    $si.Persist()
+    $db.Commit()
+
+  참고: .msi 파일 자체의 탐색기 아이콘은 Windows가 파일 형식 단위로 고정한 것(msiexec.exe
+  아이콘)이라 어떤 설치 프로그램으로도 바꿀 수 없다. ARPPRODUCTICON/Icon으로 바꿀 수 있는
+  것은 설치 후 "설정 > 앱" 목록에 뜨는 아이콘뿐이다.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <Package Name="오공 프레젠터"
            Manufacturer="오공 프레젠터"
-           Version="1.0.0"
+           Version="1.0.1"
            UpgradeCode="2F23E377-8DEF-4EF8-8779-EA55EC8D9B3D"
            Scope="perUser"
            Codepage="65001">
 
-    <!-- 관리자 권한 없이 현재 사용자 계정에만 설치 (PRD 요구사항: 관리자 권한 불필요) -->
-    <MajorUpgrade DowngradeErrorMessage="이미 더 최신 버전의 오공 프레젠터가 설치되어 있습니다." />
+    <!-- 관리자 권한 없이 현재 사용자 계정에만 설치 (PRD 요구사항: 관리자 권한 불필요).
+         AllowSameVersionUpgrades="yes": Version을 안 올리고 다시 빌드해서 설치해도
+         "복구/제거" 유지관리 화면 대신 기존 설치를 지우고 새로 깔끔하게 덮어쓴다. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="이미 더 최신 버전의 오공 프레젠터가 설치되어 있습니다." />
     <MediaTemplate EmbedCab="yes" />
 
     <StandardDirectory Id="LocalAppDataFolder">
@@ -47,6 +66,18 @@
     <!-- 설치 마법사 배경/배너 그림을 기본 WiX 이미지 대신 마스코트로 교체 -->
     <WixVariable Id="WixUIDialogBmp" Value="Assets\WixUIDialog.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="Assets\WixUIBanner.bmp" />
+
+    <!-- 첫 화면(WelcomeEulaDlg)에 표시되는 라이선스 텍스트. 지정하지 않으면 WiX 기본
+         영문 placeholder가 뜨므로, 한글 이용 안내문으로 교체한다. -->
+    <WixVariable Id="WixUILicenseRtf" Value="Assets\License.rtf" />
+
+    <!-- PresenterSetup.msi 파일 자체의 아이콘(탐색기)과 "프로그램 추가/제거" 목록 아이콘을
+         오공 얼굴로 지정한다. -->
+    <Icon Id="ProductIcon" SourceFile="..\Assets\AppIcon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+
+    <!-- 탐색기 "속성 > 자세히" 탭에 표시되는 문서 속성(제목/주제/만든이). -->
+    <SummaryInformation Description="OA Tool" Manufacturer="J-Dragon" />
 
     <ui:WixUI Id="WixUI_Minimal" />
 

@@ -38,6 +38,7 @@
 | `NativeMethods.cs` | 오버레이 클릭 통과(Click-through) 처리, 돋보기 화면 캡처용 GDI 핸들 해제 등 최소한의 Win32 P/Invoke |
 | `installer/Presenter.wxs` | 설치형 배포 파일(PresenterSetup.msi)을 만드는 WiX Toolset 스크립트 |
 | `installer/Assets/WixUIDialog.bmp`, `WixUIBanner.bmp` | 설치 마법사 시작/완료 화면과 진행 화면에 쓰이는 오공 그림 |
+| `installer/Assets/License.rtf` | 설치 시작 화면에 표시되는 한글 이용 안내(라이선스) 텍스트 |
 
 코드를 자유롭게 읽고, 수정하고, 다시 빌드해서 써도 됩니다.
 
@@ -134,8 +135,26 @@ wix build Presenter.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -a
 "Windows 시작 시 자동 실행" 레지스트리 등록과 시작 메뉴/바탕화면 바로 가기가 모두 포함되며
 제거 시 함께 삭제됩니다.
 
+4. 탐색기 "속성 > 자세히" 탭의 "제목"은 WiX가 직접 지원하지 않아, 빌드할 때마다 아래
+   PowerShell을 한 번 더 실행해서 채워야 합니다("주제"/"만든이"는 `Presenter.wxs`의
+   `<SummaryInformation>`에 이미 반영되어 있어 매번 다시 할 필요 없습니다).
+
+```powershell
+$msiPath = "Output\PresenterSetup.msi"
+$installer = New-Object -ComObject WindowsInstaller.Installer
+$db = $installer.OpenDatabase($msiPath, 1)
+$si = $db.SummaryInformation(6)
+$si.Property(2) = "I'm your bais."
+$si.Persist()
+$db.Commit()
+```
+
 > WiX v7부터는 유료 후원(Open Source Maintenance Fee) 관련 EULA 동의가 CLI에 강제되어
 > v5를 사용합니다. v5는 이 제약 없이 동일한 문법으로 빌드할 수 있습니다.
+
+> `.msi` 파일 자체의 탐색기 아이콘은 Windows가 파일 형식 단위로 고정한 것(`msiexec.exe`
+> 아이콘)이라 어떤 설치 프로그램으로도 바꿀 수 없습니다. `ARPPRODUCTICON`으로 바꿀 수
+> 있는 것은 설치 후 "설정 > 앱" 목록에 뜨는 아이콘뿐입니다.
 
 ## 5. 알려진 제약
 
