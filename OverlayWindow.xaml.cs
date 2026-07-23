@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using WinForms = System.Windows.Forms;
@@ -16,7 +17,8 @@ namespace Presenter
     {
         None,
         Pointer, // 레이저 포인터 (Day-1)
-        Draw     // 그리기 (Day-1)
+        Draw,    // 그리기 (Day-1)
+        Magnify  // 돋보기
     }
 
     public enum DrawTool
@@ -38,6 +40,20 @@ namespace Presenter
         private Brush _drawBrush = Brushes.Red;
         private double _drawThickness = 3;
         private DrawTool _drawTool = DrawTool.Freehand;
+
+        private const double MinMagnifyScale = 1.0;
+        private const double MaxMagnifyScale = 3.0;
+        private const double DefaultMagnifyScale = 1.5;
+        private const double MagnifyWheelStep = 0.1;
+
+        private Rectangle? _magnifySelectionRect;
+        private Point _magnifyStartPoint;
+        private FrameworkElement? _magnifiedOverlay;
+        private Image? _magnifiedImage;
+        private TextBlock? _magnifiedScaleText;
+        private Point _magnifyAnchor;
+        private Size _magnifyCaptureSize;
+        private double _magnifyScale = DefaultMagnifyScale;
 
         // AllowsTransparency 창은 픽셀 알파값이 0인 영역은 마우스 히트테스트 자체가 되지 않는다
         // (WS_EX_TRANSPARENT와는 별개의 동작). 완전 투명(Transparent, alpha=0)이면 그리기 모드에서도
@@ -77,6 +93,8 @@ namespace Presenter
             SetClickThrough(true);
 
             DetachDrawHandlers();
+            DetachMagnifyHandlers();
+            RemoveMagnifiedOverlay();
             UpdateLaserPosition();
             _pointerTimer.Start();
         }
@@ -108,7 +126,35 @@ namespace Presenter
             SetClickThrough(false);
 
             _pointerTimer.Stop();
+            DetachMagnifyHandlers();
+            RemoveMagnifiedOverlay();
             AttachDrawHandlers();
+        }
+
+        public void EnterMagnifyMode()
+        {
+            _mode = OverlayMode.Magnify;
+
+            LaserDot.Visibility = Visibility.Collapsed;
+            Cursor = Cursors.Cross;
+            DrawCanvas.Background = InteractiveBackground;
+
+            // 드래그로 영역을 선택해야 하므로 클릭 통과 OFF
+            SetClickThrough(false);
+
+            _pointerTimer.Stop();
+            DetachDrawHandlers();
+            RemoveMagnifiedOverlay();
+            AttachMagnifyHandlers();
+        }
+
+        // 돋보기 도구 창이 닫힐 때 호출된다. 다른 모드로 이미 전환된 상태라면 아무것도 하지 않는다.
+        public void ExitMagnifyModeIfActive()
+        {
+            if (_mode == OverlayMode.Magnify)
+            {
+                ExitMode();
+            }
         }
 
         // 이미 그려진 도형에는 소급 적용되지 않고, 이후에 새로 그리는 도형부터 적용된다.
@@ -137,6 +183,9 @@ namespace Presenter
 
             _pointerTimer.Stop();
             DetachDrawHandlers();
+            DetachMagnifyHandlers();
+            RemoveMagnifiedOverlay();
+            _magnifyScale = DefaultMagnifyScale;
 
             SetClickThrough(true);
         }
@@ -338,6 +387,209 @@ namespace Presenter
             }
         }
 
+        // ---------- 돋보기 ----------
+
+        private void AttachMagnifyHandlers()
+        {
+            DetachMagnifyHandlers();
+            DrawCanvas.MouseLeftButtonDown += Magnify_MouseLeftButtonDown;
+            DrawCanvas.MouseMove += Magnify_MouseMove;
+            DrawCanvas.MouseLeftButtonUp += Magnify_MouseLeftButtonUp;
+            DrawCanvas.MouseWheel += Magnify_MouseWheel;
+        }
+
+        private void DetachMagnifyHandlers()
+        {
+            DrawCanvas.MouseLeftButtonDown -= Magnify_MouseLeftButtonDown;
+            DrawCanvas.MouseMove -= Magnify_MouseMove;
+            DrawCanvas.MouseLeftButtonUp -= Magnify_MouseLeftButtonUp;
+            DrawCanvas.MouseWheel -= Magnify_MouseWheel;
+        }
+
+        private void Magnify_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            RemoveMagnifiedOverlay();
+
+            _magnifyStartPoint = e.GetPosition(DrawCanvas);
+            _magnifySelectionRect = new Rectangle
+            {
+                Stroke = Brushes.White,
+                StrokeThickness = 1.5,
+                StrokeDashArray = new DoubleCollection { 4, 3 },
+                Fill = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF))
+            };
+            Canvas.SetLeft(_magnifySelectionRect, _magnifyStartPoint.X);
+            Canvas.SetTop(_magnifySelectionRect, _magnifyStartPoint.Y);
+            DrawCanvas.Children.Add(_magnifySelectionRect);
+            DrawCanvas.CaptureMouse();
+        }
+
+        private void Magnify_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_magnifySelectionRect == null || e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            Point pos = e.GetPosition(DrawCanvas);
+            UpdateBoundingBoxShape(_magnifySelectionRect, _magnifyStartPoint, pos, keepSquare: false);
+        }
+
+        private async void Magnify_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            DrawCanvas.ReleaseMouseCapture();
+
+            if (_magnifySelectionRect == null)
+            {
+                return;
+            }
+
+            double left = Canvas.GetLeft(_magnifySelectionRect);
+            double top = Canvas.GetTop(_magnifySelectionRect);
+            double width = _magnifySelectionRect.Width;
+            double height = _magnifySelectionRect.Height;
+
+            DrawCanvas.Children.Remove(_magnifySelectionRect);
+            _magnifySelectionRect = null;
+
+            if (width < 4 || height < 4)
+            {
+                return; // 너무 작게 드래그한 경우는 무시
+            }
+
+            Point topLeftScreen = DrawCanvas.PointToScreen(new Point(left, top));
+            Point bottomRightScreen = DrawCanvas.PointToScreen(new Point(left + width, top + height));
+
+            // 선택 사각형을 지운 뒤 화면을 캡처해야 그 테두리가 캡처 이미지에 함께 찍히지 않는다.
+            // 렌더링 한 프레임을 기다려 실제로 화면에서 지워질 시간을 준다.
+            await Dispatcher.Yield(DispatcherPriority.Render);
+
+            _magnifyAnchor = new Point(left + width / 2, top + height / 2);
+            _magnifyScale = DefaultMagnifyScale;
+
+            CaptureAndShowMagnifiedRegion(topLeftScreen, bottomRightScreen);
+        }
+
+        private void CaptureAndShowMagnifiedRegion(Point topLeftScreen, Point bottomRightScreen)
+        {
+            int captureX = (int)Math.Round(topLeftScreen.X);
+            int captureY = (int)Math.Round(topLeftScreen.Y);
+            int captureWidth = (int)Math.Round(bottomRightScreen.X - topLeftScreen.X);
+            int captureHeight = (int)Math.Round(bottomRightScreen.Y - topLeftScreen.Y);
+
+            if (captureWidth <= 0 || captureHeight <= 0)
+            {
+                return;
+            }
+
+            BitmapSource capturedSource;
+            using (var bitmap = new System.Drawing.Bitmap(captureWidth, captureHeight))
+            {
+                using (var g = System.Drawing.Graphics.FromImage(bitmap))
+                {
+                    g.CopyFromScreen(captureX, captureY, 0, 0, new System.Drawing.Size(captureWidth, captureHeight));
+                }
+
+                IntPtr hBitmap = bitmap.GetHbitmap();
+                try
+                {
+                    capturedSource = Imaging.CreateBitmapSourceFromHBitmap(
+                        hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    capturedSource.Freeze();
+                }
+                finally
+                {
+                    NativeMethods.DeleteGdiObject(hBitmap);
+                }
+            }
+
+            _magnifyCaptureSize = new Size(captureWidth, captureHeight);
+
+            _magnifiedImage = new Image
+            {
+                Source = capturedSource,
+                Stretch = Stretch.Fill
+            };
+
+            _magnifiedScaleText = new TextBlock
+            {
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                Margin = new Thickness(8, 4, 8, 4)
+            };
+
+            var scaleBadge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xB3, 0x20, 0x20, 0x20)),
+                CornerRadius = new CornerRadius(6),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(6),
+                Child = _magnifiedScaleText
+            };
+
+            var container = new Grid();
+            container.Children.Add(_magnifiedImage);
+            container.Children.Add(scaleBadge);
+
+            _magnifiedOverlay = new Border
+            {
+                BorderBrush = Brushes.White,
+                BorderThickness = new Thickness(2),
+                Child = container,
+                Effect = new DropShadowEffect { Color = Colors.Black, Opacity = 0.5, BlurRadius = 20, ShadowDepth = 6 }
+            };
+
+            DrawCanvas.Children.Add(_magnifiedOverlay);
+            UpdateMagnifiedOverlayLayout();
+        }
+
+        private void Magnify_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (_magnifiedOverlay == null)
+            {
+                return;
+            }
+
+            double step = (e.Delta > 0 ? 1 : -1) * MagnifyWheelStep;
+            _magnifyScale = Math.Clamp(_magnifyScale + step, MinMagnifyScale, MaxMagnifyScale);
+            UpdateMagnifiedOverlayLayout();
+        }
+
+        private void UpdateMagnifiedOverlayLayout()
+        {
+            if (_magnifiedOverlay == null)
+            {
+                return;
+            }
+
+            double width = _magnifyCaptureSize.Width * _magnifyScale;
+            double height = _magnifyCaptureSize.Height * _magnifyScale;
+
+            _magnifiedOverlay.Width = width;
+            _magnifiedOverlay.Height = height;
+            Canvas.SetLeft(_magnifiedOverlay, _magnifyAnchor.X - width / 2);
+            Canvas.SetTop(_magnifiedOverlay, _magnifyAnchor.Y - height / 2);
+
+            if (_magnifiedScaleText != null)
+            {
+                _magnifiedScaleText.Text = $"{_magnifyScale * 100:0}%";
+            }
+        }
+
+        // Esc 또는 새 드래그 시작, 다른 모드로 전환 시 호출되어 확대 화면을 치운다.
+        private void RemoveMagnifiedOverlay()
+        {
+            if (_magnifiedOverlay != null)
+            {
+                DrawCanvas.Children.Remove(_magnifiedOverlay);
+                _magnifiedOverlay = null;
+                _magnifiedImage = null;
+                _magnifiedScaleText = null;
+            }
+        }
+
         // ---------- 타이머 표시 ----------
 
         // 오버레이는 모든 모니터를 합친 가상 데스크톱 전체를 덮으므로, 타이머 관련 표시는
@@ -472,8 +724,8 @@ namespace Presenter
             DrawCanvas.Children.Remove(_timeUpContainer);
             _timeUpContainer = null;
 
-            // 원래 모드(포인터/그리기/없음)에 맞는 클릭 통과 상태로 되돌린다.
-            SetClickThrough(_mode != OverlayMode.Draw);
+            // 원래 모드(포인터/그리기/돋보기/없음)에 맞는 클릭 통과 상태로 되돌린다.
+            SetClickThrough(_mode != OverlayMode.Draw && _mode != OverlayMode.Magnify);
         }
 
         // ---------- 공통 ----------
@@ -482,7 +734,16 @@ namespace Presenter
         {
             if (e.Key == Key.Escape)
             {
-                ExitMode();
+                // 돋보기 모드에서 ESC는 모드 자체는 유지한 채 확대 화면만 원래대로 되돌린다.
+                // 모드 종료는 돋보기 도구 창을 닫아야 한다.
+                if (_mode == OverlayMode.Magnify)
+                {
+                    RemoveMagnifiedOverlay();
+                }
+                else
+                {
+                    ExitMode();
+                }
             }
             else if (e.Key == Key.Delete && _mode == OverlayMode.Draw)
             {

@@ -33,6 +33,16 @@ namespace Presenter
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
 
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        // Bitmap.GetHbitmap()으로 만든 GDI 비트맵 핸들은 CreateBitmapSourceFromHBitmap이
+        // 소유권을 가져가지 않으므로, 돋보기 화면 캡처 후 직접 해제해줘야 핸들이 새지 않는다.
+        public static void DeleteGdiObject(IntPtr handle)
+        {
+            DeleteObject(handle);
+        }
+
         // 클릭 통과(포인터) 모드에서는 창이 마우스 클릭 이벤트를 전혀 받지 못하므로,
         // 우클릭으로 모드를 해제하려면 전역 키 상태를 직접 폴링해야 한다.
         public static bool IsRightMouseButtonDown()
