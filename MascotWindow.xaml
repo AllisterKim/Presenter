@@ -1,7 +1,7 @@
 <Window x:Class="Presenter.MascotWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Presenter"
+        Title="오공 프레젠터"
         Width="150" Height="192"
         WindowStyle="None"
         AllowsTransparency="True"

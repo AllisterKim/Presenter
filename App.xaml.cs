@@ -37,7 +37,7 @@ namespace Presenter
             _trayIcon = new WinForms.NotifyIcon
             {
                 Icon = _trayIconImage ?? System.Drawing.SystemIcons.Application,
-                Text = "Presenter",
+                Text = "오공 프레젠터",
                 Visible = true,
                 ContextMenuStrip = contextMenu
             };
@@ -69,7 +69,7 @@ namespace Presenter
         public static bool ConfirmExit()
         {
             return MessageBox.Show(
-                "Presenter를 종료하시겠습니까?",
+                "오공 프레젠터를 종료하시겠습니까?",
                 "종료 확인",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question,

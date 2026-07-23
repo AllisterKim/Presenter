@@ -312,7 +312,7 @@ namespace Presenter
             };
         }
 
-        private static UIElement BuildFaceVisual(bool blink, bool mouthOpen)
+        internal static UIElement BuildFaceVisual(bool blink, bool mouthOpen)
         {
             var grid = new UniformGrid
             {
